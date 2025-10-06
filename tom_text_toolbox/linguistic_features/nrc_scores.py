@@ -17,22 +17,11 @@ def avg_emo_scores(caption, emo_dicts):
     return result
 
 def classify_nrc_dict(captions: list[str] | pd.Series) -> pd.DataFrame:
-    """
-    Calculate the average joy and anger from EmoLex.
-
-    Parameters
-    ----------
-    captions : list of str or pandas.Series
-        A list or Series of textual captions for which joy/anger scores will be computed.
-        Assumes captions are NOT tokenized.
-
-    Returns
-    -------
-    pd.DataFrame
-        A pandas DataFrame with average joy and anger scores for each caption.
-    """
-    joy_path = os.path.join("tom_text_toolbox/linguistic_dictionaries/joy-NRC-EmoIntv1-withZeroIntensityEntries.txt")
-    anger_path = os.path.join("tom_text_toolbox/linguistic_dictionaries/anger-NRC-EmoIntv1-withZeroIntensityEntries.txt")
+    # Get the directory where the tom_text_toolbox package is installed
+    base_dir = os.path.dirname(ttt.__file__)
+    
+    joy_path = os.path.join(base_dir, "linguistic_dictionaries", "joy-NRC-EmoIntv1-withZeroIntensityEntries.txt")
+    anger_path = os.path.join(base_dir, "linguistic_dictionaries", "anger-NRC-EmoIntv1-withZeroIntensityEntries.txt")
 
     joy = pd.read_csv(joy_path, sep="\t")
     anger = pd.read_csv(anger_path, sep="\t")
@@ -45,7 +34,6 @@ def classify_nrc_dict(captions: list[str] | pd.Series) -> pd.DataFrame:
         "anger": anger_dict
     }
 
-    # Process each caption
     results = []
     for caption in captions:
         tokens = re.findall(r"\b[a-zA-Z]+\b", caption.lower())
