@@ -1,19 +1,24 @@
 import pandas as pd
 from tqdm import tqdm
+import re
+from typing import Union
 
-def classify_whissell_scores(captions: pd.Series, dictionary: str|pd.DataFrame = "tom_text_toolbox/linguistic_dictionaries/whissell_dict.csv") -> pd.DataFrame:
+def classify_whissell_scores(
+    captions: pd.Series, 
+    dictionary: Union[str, pd.DataFrame] = "tom_text_toolbox/linguistic_dictionaries/whissell_dict.csv"
+) -> pd.DataFrame:
     """
-    Calculate Whissell scores for a series of captions and return as a dictionary of Series.
+    Calculate Whissell scores for a series of captions.
 
     Parameters:
-        captions (pd.Series): Series of caption strings.
-        dictionary (pd.DataFrame): Whissell dictionary with 'pleas', 'activ', 'image' columns, indexed by 'word'.
+        captions (pd.Series): Series of caption strings or tokenized captions (list of words).
+        dictionary (str or pd.DataFrame): Whissell dictionary with 'pleas', 'activ', 'image' columns, indexed by 'word'.
 
     Returns:
-        dict[str, pd.Series]: Dictionary with keys:
-            - 'mean_pleasant'
-            - 'mean_active'
-            - 'mean_image'
+        pd.DataFrame: DataFrame with columns:
+            - 'whissell_pleasant'
+            - 'whissell_active'
+            - 'whissell_image'
     """
     if isinstance(dictionary, str):
         dictionary = pd.read_csv(dictionary)
@@ -26,7 +31,13 @@ def classify_whissell_scores(captions: pd.Series, dictionary: str|pd.DataFrame =
     image = []
 
     for caption in tqdm(captions, desc="Scoring captions"):
-        matched_words = [w for w in caption if w in dictionary.index]
+        # If caption is string, tokenize
+        if isinstance(caption, str):
+            words = re.findall(r"\b[a-zA-Z]+\b", caption.lower())
+        else:
+            words = [str(w).lower() for w in caption]
+
+        matched_words = [w for w in words if w in dictionary.index]
 
         if matched_words:
             scores = dictionary.loc[matched_words]
@@ -45,18 +56,15 @@ def classify_whissell_scores(captions: pd.Series, dictionary: str|pd.DataFrame =
         "whissell_image": pd.Series(image, index=captions.index),
     })
 
+
 if __name__ == "__main__":
     df = pd.DataFrame({
         "caption": ["This is a test.", "Another sentence!", "Third one."]
     })
 
-    results = {
-        "caption": df["caption"]
-    }
-
     # Add Whissell scores
-    results.update(classify_whissell_scores(df["caption"]))
+    whissell_df = classify_whissell_scores(df["caption"])
 
-    # Create final DataFrame
-    final_df = pd.DataFrame(results)
+    # Combine with original captions
+    final_df = pd.concat([df, whissell_df], axis=1)
     print(final_df.head())
