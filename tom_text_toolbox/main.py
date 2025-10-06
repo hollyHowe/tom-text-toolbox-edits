@@ -2,20 +2,20 @@ import pandas as pd
 from nltk.tokenize import word_tokenize
 
 ### Single Score Features (returns a Series)
-from linguistic_features.abstract_concrete_score import classify_abstract_concrete  # Abstract/Concrete Scores
-from linguistic_features.familiarity_score import classify_familiarity  # Familiarity Score
-from linguistic_features.mind_miner_score import classify_mind_miner  # Mind Miner Score
-from linguistic_features.mistakes_score import count_spelling_mistakes  # Spelling Mistake Count
-from linguistic_features.passive_voice_score import count_passive  # Passive Voice Count
-from linguistic_features.levdist_scores import classify_levdist
+from .linguistic_features.abstract_concrete_score import classify_abstract_concrete  # Abstract/Concrete Scores
+from .linguistic_features.familiarity_score import classify_familiarity  # Familiarity Score
+from .linguistic_features.mind_miner_score import classify_mind_miner  # Mind Miner Score
+from .linguistic_features.mistakes_score import count_spelling_mistakes  # Spelling Mistake Count
+from .linguistic_features.passive_voice_score import count_passive  # Passive Voice Count
+from .linguistic_features.levdist_scores import classify_levdist
 
 ### Multiple Score Features (returns a DataFrame)
-from linguistic_features.dictionary_scores import TermCounter  # All custom dictionary scores (including Harvard, excluding nrc)
-from linguistic_features.spacy_measure_scores import SpacyAnalyzer  # Spacy-Based Scores
-from linguistic_features.nrc_scores import classify_nrc_dict  # Score Joy and Anger
-from linguistic_features.whissell_scores import classify_whissell_scores  # Score Whissell Dictionary Scores
-from linguistic_features.figurative_speech_scores import classify_figures_of_speech  # Score Figure of Speech
-from linguistic_features.liwc_scores import classify_liwc  # Classify all liwc scores
+from .linguistic_features.dictionary_scores import TermCounter  # All custom dictionary scores (including Harvard, excluding nrc)
+from .linguistic_features.spacy_measure_scores import SpacyAnalyzer  # Spacy-Based Scores
+from .linguistic_features.nrc_scores import classify_nrc_dict  # Score Joy and Anger
+from .linguistic_features.whissell_scores import classify_whissell_scores  # Score Whissell Dictionary Scores
+from .linguistic_features.figurative_speech_scores import classify_figures_of_speech  # Score Figure of Speech
+from .linguistic_features.liwc_scores import classify_liwc  # Classify all liwc scores
 
 
 ### Read in the target file
