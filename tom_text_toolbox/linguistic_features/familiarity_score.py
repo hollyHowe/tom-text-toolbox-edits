@@ -1,7 +1,4 @@
-import pandas as pd
-from typing import Optional, Union
-from tqdm import tqdm
-
+import os
 import pandas as pd
 from typing import Optional, Union, List
 from tqdm import tqdm
@@ -9,7 +6,17 @@ from tqdm import tqdm
 # -----------------------------
 # Load familiarity dictionary
 # -----------------------------
-def load_familiarity_dict(dict_path: str = "tom_text_toolbox/linguistic_dictionaries/fam_peatzold_dict.csv") -> dict:
+def load_familiarity_dict(dict_path: str = None) -> dict:
+    """
+    Loads the familiarity dictionary.
+
+    If dict_path is None, automatically finds it in the package's
+    linguistic_dictionaries folder relative to this script.
+    """
+    if dict_path is None:
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "linguistic_dictionaries"))
+        dict_path = os.path.join(base_dir, "fam_peatzold_dict.csv")
+
     df = pd.read_csv(dict_path)
     df = df[df["Word"].apply(lambda x: isinstance(x, str))]
     return dict(zip(df["Word"].str.lower(), df["Familiarity"]))
@@ -47,12 +54,13 @@ def classify_familiarity(captions: pd.Series, show_progress: bool = False) -> pd
     else:
         return captions.apply(lambda x: score_caption(x, fam_dict))
 
-
 # -----------------------------
 # Main execution
 # -----------------------------
 if __name__ == "__main__":
-    df = pd.read_csv("tom_text_toolbox/text_data_TEST.csv")
+    # Load test CSV relative to this script
+    test_csv_path = os.path.join(os.path.dirname(__file__), "text_data_TEST.csv")
+    df = pd.read_csv(test_csv_path)
     
     # This will now work whether "caption" is tokenized (list) or a raw string
     df["familiarity_score"] = classify_familiarity(df["caption"])
