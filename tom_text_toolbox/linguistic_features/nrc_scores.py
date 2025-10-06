@@ -22,10 +22,10 @@ import re
 
 def classify_nrc_dict(captions: list[str] | pd.Series) -> pd.DataFrame:
     # Get the directory where this file (nrc_scores.py) is located
-    base_dir = os.path.dirname(__file__)  
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "linguistic_dictionaries"))
 
-    joy_path = os.path.join(base_dir, "linguistic_dictionaries", "joy-NRC-EmoIntv1-withZeroIntensityEntries.txt")
-    anger_path = os.path.join(base_dir, "linguistic_dictionaries", "anger-NRC-EmoIntv1-withZeroIntensityEntries.txt")
+joy_path = os.path.join(base_dir, "joy-NRC-EmoIntv1-withZeroIntensityEntries.txt")
+anger_path = os.path.join(base_dir, "anger-NRC-EmoIntv1-withZeroIntensityEntries.txt")
 
     joy = pd.read_csv(joy_path, sep="\t")
     anger = pd.read_csv(anger_path, sep="\t")
