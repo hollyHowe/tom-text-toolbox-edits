@@ -6,7 +6,7 @@ from tqdm import tqdm
 # Load once globally to avoid reloading for every function call
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TOKENIZER = T5Tokenizer.from_pretrained('laihuiyuan/MMFLD', legacy = True)
-MODEL = MT5ForConditionalGeneration.from_pretrained('laihuiyuan/MMFLD').to(DEVICE)
+MODEL = MT5ForConditionalGeneration.from_pretrained('laihuiyuan/MMFLD', use_safetensors=True).to(DEVICE)
 
 def classify_figures_of_speech(captions, tasks=None, batch_size=4):
     if tasks is None:
