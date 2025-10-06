@@ -16,17 +16,17 @@ def avg_emo_scores(caption, emo_dicts):
         result[emo_name] = sum(scores) / len(scores) if scores else float("nan")
     return result
 
-import os
-import pandas as pd
-import re
-
 def classify_nrc_dict(captions: list[str] | pd.Series) -> pd.DataFrame:
-    # Get the directory where this file (nrc_scores.py) is located
+    """
+    Calculate average joy and anger scores from EmoLex for a list of captions.
+    """
+    # Get the directory where the linguistic_dictionaries folder is located
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "linguistic_dictionaries"))
 
-joy_path = os.path.join(base_dir, "joy-NRC-EmoIntv1-withZeroIntensityEntries.txt")
-anger_path = os.path.join(base_dir, "anger-NRC-EmoIntv1-withZeroIntensityEntries.txt")
+    joy_path = os.path.join(base_dir, "joy-NRC-EmoIntv1-withZeroIntensityEntries.txt")
+    anger_path = os.path.join(base_dir, "anger-NRC-EmoIntv1-withZeroIntensityEntries.txt")
 
+    # Load the emotion dictionaries
     joy = pd.read_csv(joy_path, sep="\t")
     anger = pd.read_csv(anger_path, sep="\t")
 
@@ -47,8 +47,8 @@ anger_path = os.path.join(base_dir, "anger-NRC-EmoIntv1-withZeroIntensityEntries
 
     return pd.DataFrame(results)
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     captions = [
         "I love my joyous and wonderful life",
         "I like bananas and chocolate milk a lot.",
