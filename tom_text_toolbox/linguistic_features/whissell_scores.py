@@ -2,17 +2,21 @@ import pandas as pd
 from tqdm import tqdm
 import re
 from typing import Union
+from pathlib import Path
+import tom_text_toolbox as ttt  # needed to find the package folder
 
 def classify_whissell_scores(
     captions: pd.Series, 
-    dictionary: Union[str, pd.DataFrame] = "tom_text_toolbox/linguistic_dictionaries/whissell_dict.csv"
+    dictionary: Union[str, pd.DataFrame, None] = None
 ) -> pd.DataFrame:
     """
     Calculate Whissell scores for a series of captions.
 
     Parameters:
         captions (pd.Series): Series of caption strings or tokenized captions (list of words).
-        dictionary (str or pd.DataFrame): Whissell dictionary with 'pleas', 'activ', 'image' columns, indexed by 'word'.
+        dictionary (str or pd.DataFrame or None): Whissell dictionary with 'pleas', 'activ', 'image' columns, 
+                                                  indexed by 'word'. If None, uses the default dictionary
+                                                  inside tom_text_toolbox package.
 
     Returns:
         pd.DataFrame: DataFrame with columns:
@@ -20,7 +24,11 @@ def classify_whissell_scores(
             - 'whissell_active'
             - 'whissell_image'
     """
-    if isinstance(dictionary, str):
+    # Automatically locate default dictionary if none provided
+    if dictionary is None:
+        dictionary = Path(ttt.__file__).parent / "linguistic_dictionaries" / "whissell_dict.csv"
+
+    if isinstance(dictionary, str) or isinstance(dictionary, Path):
         dictionary = pd.read_csv(dictionary)
 
     if dictionary.index.name != 'word':
@@ -68,3 +76,4 @@ if __name__ == "__main__":
     # Combine with original captions
     final_df = pd.concat([df, whissell_df], axis=1)
     print(final_df.head())
+
