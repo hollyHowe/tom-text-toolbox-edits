@@ -32,7 +32,9 @@ def start_liwc_license_server():
     if system == "Windows":
         license_server_path = r"C:\Program Files\LIWC-22\LIWC-22-license-server\LIWC-22-license-server.exe"
     elif system == "Darwin":  # macOS
-        license_server_path = "/Applications/LIWC-22-license-server/LIWC-22-license-server.app/Contents/MacOS/LIWC-22-license-server"
+        # === CHANGED ===
+        license_server_path = "/Applications/LIWC-22.app/Contents/MacOS/LIWC-22-license-server"  
+        # === END CHANGED ===
     else:
         print(f"Unsupported operating system: {system}")
         return
@@ -61,7 +63,9 @@ def get_liwc_cli_command(input_path, column_index, output_path, custom_dictionar
     if system == "Windows":
         cli_executable = "LIWC-22-cli.exe"
     elif system == "Darwin":
-        cli_executable = "/Applications/LIWC-22-license-server/LIWC-22-cli"  # adjust macOS path
+        # === CHANGED ===
+        cli_executable = "/Applications/LIWC-22.app/Contents/MacOS/LIWC-22-cli"  
+        # === END CHANGED ===
     else:
         raise RuntimeError(f"Unsupported OS: {system}")
 
