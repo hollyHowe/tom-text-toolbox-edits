@@ -16,10 +16,14 @@ def avg_emo_scores(caption, emo_dicts):
         result[emo_name] = sum(scores) / len(scores) if scores else float("nan")
     return result
 
+import os
+import pandas as pd
+import re
+
 def classify_nrc_dict(captions: list[str] | pd.Series) -> pd.DataFrame:
-    # Get the directory where the tom_text_toolbox package is installed
-    base_dir = os.path.dirname(ttt.__file__)
-    
+    # Get the directory where this file (nrc_scores.py) is located
+    base_dir = os.path.dirname(__file__)  
+
     joy_path = os.path.join(base_dir, "linguistic_dictionaries", "joy-NRC-EmoIntv1-withZeroIntensityEntries.txt")
     anger_path = os.path.join(base_dir, "linguistic_dictionaries", "anger-NRC-EmoIntv1-withZeroIntensityEntries.txt")
 
@@ -34,6 +38,7 @@ def classify_nrc_dict(captions: list[str] | pd.Series) -> pd.DataFrame:
         "anger": anger_dict
     }
 
+    # Process each caption
     results = []
     for caption in captions:
         tokens = re.findall(r"\b[a-zA-Z]+\b", caption.lower())
