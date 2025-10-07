@@ -3,6 +3,7 @@ import subprocess
 import os
 import psutil
 import platform
+import time  # === CHANGED ===
 
 def is_license_server_running():
     """
@@ -33,8 +34,7 @@ def start_liwc_license_server():
         license_server_path = r"C:\Program Files\LIWC-22\LIWC-22-license-server\LIWC-22-license-server.exe"
     elif system == "Darwin":  # macOS
         # === CHANGED ===
-        license_server_path = "/Applications/LIWC-22.app/Contents/MacOS/LIWC-22-license-server"  
-        # === END CHANGED ===
+        license_server_path = "/Applications/LIWC-22.app"
     else:
         print(f"Unsupported operating system: {system}")
         return
@@ -48,7 +48,17 @@ def start_liwc_license_server():
         return
 
     try:
-        subprocess.Popen([license_server_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # === CHANGED ===
+        if system == "Darwin":
+            subprocess.Popen(["open", "-a", license_server_path])
+            # Wait up to 10 seconds for the server to start
+            for _ in range(10):
+                if is_license_server_running():
+                    break
+                time.sleep(1)
+        else:
+            subprocess.Popen([license_server_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # === END CHANGED ===
         print("LIWC license server launched successfully.")
     except Exception as e:
         print(f"Failed to launch license server: {e}")
@@ -64,7 +74,7 @@ def get_liwc_cli_command(input_path, column_index, output_path, custom_dictionar
         cli_executable = "LIWC-22-cli.exe"
     elif system == "Darwin":
         # === CHANGED ===
-        cli_executable = "/Applications/LIWC-22.app/Contents/MacOS/LIWC-22-cli"  
+        cli_executable = "/Applications/LIWC-22.app/Contents/MacOS/LIWC-22-cli"
         # === END CHANGED ===
     else:
         raise RuntimeError(f"Unsupported OS: {system}")
@@ -159,3 +169,4 @@ def classify_liwc(file: str, column: str, dependent: bool = False, merge_back: b
         print(f"Combined LIWC output written to: {merged_output_path}")
         print(list(merged_df.columns))
         return merged_df
+
