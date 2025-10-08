@@ -198,3 +198,4 @@ if __name__ == "__main__":
     out = classify_mind_miner(df["caption"])
     print(out)
 
+
