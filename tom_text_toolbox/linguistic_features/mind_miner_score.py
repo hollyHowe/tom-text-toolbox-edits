@@ -19,9 +19,9 @@ def classify_mind_miner(captions: pd.Series | list) -> pd.Series:
     Analyze tokenized captions using MindMiner with token-level chunking.
     
     Parameters:
-        captions (pd.Series | list): Series or list of token lists.
+        captions (pd.Series | list): Series or list of token lists (or strings).
     Returns:          
-        pd.Series: List of average scores for each caption.
+        pd.Series: Average scores for each caption.
     """
 
     model_name = "j-hartmann/MindMiner"
@@ -31,7 +31,7 @@ def classify_mind_miner(captions: pd.Series | list) -> pd.Series:
         device=0 if torch.cuda.is_available() else -1
     )
 
-    # Check if the GPU is available
+    # GPU/CPU check
     if mindminer.device == 0:
         print("⚡ Using GPU for inference.")
     else:
@@ -39,24 +39,35 @@ def classify_mind_miner(captions: pd.Series | list) -> pd.Series:
 
     results = []
     for token_list in captions:
-        # Ensure we're working with a list of tokens
+        # Ensure we have a list of tokens
         if isinstance(token_list, str):
             token_list = token_list.split()
         elif not isinstance(token_list, list):
             token_list = [str(token_list)]
 
+        # If token_list is empty, append NaN or 0 to avoid crashing
+        if len(token_list) == 0:
+            results.append(float('nan'))
+            continue
+
         # Chunk the token list
         chunks = chunk_tokens(token_list, chunk_size=MAX_TOKENS)
 
-        # Run inference on each chunk
         chunk_scores = []
         for chunk in chunks:
-            output = mindminer(chunk)
-            chunk_scores.append(output[0]['score'])
+            try:
+                output = mindminer(chunk)
+                chunk_scores.append(output[0]['score'])
+            except Exception as e:
+                print(f"❌ Error processing chunk (length {len(chunk.split())}): {e}")
+                continue
 
-        # Average score for the caption
-        avg_score = sum(chunk_scores) / len(chunk_scores)
-        results.append(avg_score)
+        # If no chunk scores were collected, append NaN
+        if len(chunk_scores) == 0:
+            results.append(float('nan'))
+        else:
+            avg_score = sum(chunk_scores) / len(chunk_scores)
+            results.append(avg_score)
 
     return pd.Series(results)
 
@@ -77,5 +88,6 @@ if __name__ == "__main__":
 
     # Print results
     print(results)
+
 
 
