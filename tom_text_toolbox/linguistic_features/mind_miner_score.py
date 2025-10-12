@@ -1,7 +1,7 @@
 import pandas as pd
 from transformers import pipeline
 import torch
-from tqdm import tqdm  # <--- progress bar
+from tqdm import tqdm  # progress bar
 
 def chunk_text(text: str, max_tokens: int = 400) -> list:
     """Split a text string into chunks of up to max_tokens words (approximate tokens)."""
@@ -10,8 +10,7 @@ def chunk_text(text: str, max_tokens: int = 400) -> list:
 
 def classify_mind_miner(captions: pd.Series | list, max_tokens_per_chunk: int = 400, batch_size: int = 8):
     """
-    Analyze captions using MindMiner, efficiently handling very long captions on CPU using batching.
-    Shows a progress bar.
+    Analyze captions using MindMiner, safely handling very long captions with batching, weighted average, and progress bar.
     
     Parameters:
         captions (pd.Series | list): Series or list of caption strings.
@@ -30,7 +29,7 @@ def classify_mind_miner(captions: pd.Series | list, max_tokens_per_chunk: int = 
 
     all_scores = []
 
-    # Wrap the loop with tqdm for a progress bar
+    # Loop over captions with progress bar
     for caption in tqdm(captions, desc="Processing captions", unit="caption"):
         chunks = chunk_text(caption, max_tokens=max_tokens_per_chunk)
         chunk_scores = []
@@ -39,7 +38,9 @@ def classify_mind_miner(captions: pd.Series | list, max_tokens_per_chunk: int = 
         for i in range(0, len(chunks), batch_size):
             batch = chunks[i:i+batch_size]
             batch_results = mindminer(batch)
-            chunk_scores.extend([res[0]['score'] for res in batch_results])
+
+            # Safely extract scores from batch
+            chunk_scores.extend([res.get('score', 0.0) for res in batch_results])
 
         # Weighted average by chunk length
         chunk_lengths = [len(chunk.split()) for chunk in chunks]
@@ -62,5 +63,4 @@ if __name__ == "__main__":
 
     results = classify_mind_miner(df["caption"])
     print(results)
-
 
