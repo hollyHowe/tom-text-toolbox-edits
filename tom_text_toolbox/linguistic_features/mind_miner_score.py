@@ -3,7 +3,7 @@ from transformers import pipeline
 import torch
 from tqdm import tqdm  # progress bar
 
-def chunk_text(text: str, max_tokens: int = 400) -> list:
+def chunk_text(text: str, max_tokens: int = 300) -> list:
     """Split a text string into chunks of up to max_tokens words (approximate tokens)."""
     words = text.split()
     return [" ".join(words[i:i + max_tokens]) for i in range(0, len(words), max_tokens)]
