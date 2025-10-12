@@ -1,66 +1,47 @@
 import pandas as pd
-from transformers import pipeline
+from transformers import pipeline, AutoTokenizer
 import torch
-from tqdm import tqdm  # progress bar
+from tqdm import tqdm
 
-def chunk_text(text: str, max_tokens: int = 300) -> list:
-    """Split a text string into chunks of up to max_tokens words (approximate tokens)."""
-    words = text.split()
-    return [" ".join(words[i:i + max_tokens]) for i in range(0, len(words), max_tokens)]
+def chunk_text_with_token_lengths(text: str, tokenizer, max_tokens: int = 300):
+    """
+    Split text into chunks and return both the chunk text and its token length.
+    """
+    tokens = tokenizer.encode(text, add_special_tokens=False)
+    chunks = [tokens[i:i + max_tokens] for i in range(0, len(tokens), max_tokens)]
+    chunk_texts = [tokenizer.decode(chunk, clean_up_tokenization_spaces=True) for chunk in chunks]
+    chunk_lengths = [len(chunk) for chunk in chunks]
+    return chunk_texts, chunk_lengths
 
-def classify_mind_miner(captions: pd.Series | list, max_tokens_per_chunk: int = 400, batch_size: int = 8):
-    """
-    Analyze captions using MindMiner, safely handling very long captions with batching, weighted average, and progress bar.
-    
-    Parameters:
-        captions (pd.Series | list): Series or list of caption strings.
-        max_tokens_per_chunk (int): Maximum number of tokens per chunk.
-        batch_size (int): Number of chunks to process at once in the pipeline.
-        
-    Returns:
-        pd.Series: Series of weighted-average scores for each caption.
-    """
-    
+def classify_mind_miner(captions: pd.Series | list, max_tokens_per_chunk: int = 300, batch_size: int = 8):
     model_name = "j-hartmann/MindMiner"
     device = 0 if torch.cuda.is_available() else -1
+
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
     mindminer = pipeline(model=model_name, function_to_apply="none", device=device)
 
     print(f"{'Using GPU' if device == 0 else 'Using CPU'} for inference.")
 
     all_scores = []
 
-    # Loop over captions with progress bar
     for caption in tqdm(captions, desc="Processing captions", unit="caption"):
-        chunks = chunk_text(caption, max_tokens=max_tokens_per_chunk)
-        chunk_scores = []
+        try:
+            chunks, chunk_lengths = chunk_text_with_token_lengths(caption, tokenizer, max_tokens=max_tokens_per_chunk)
+            chunk_scores = []
 
-        # Process chunks in batches
-        for i in range(0, len(chunks), batch_size):
-            batch = chunks[i:i+batch_size]
-            batch_results = mindminer(batch)
+            for i in range(0, len(chunks), batch_size):
+                batch = chunks[i:i + batch_size]
+                batch_results = mindminer(batch)
+                chunk_scores.extend([res.get('score', 0.0) for res in batch_results])
 
-            # Safely extract scores from batch
-            chunk_scores.extend([res.get('score', 0.0) for res in batch_results])
+            total_length = sum(chunk_lengths)
+            weighted_avg = sum(score * length for score, length in zip(chunk_scores, chunk_lengths)) / total_length
+            all_scores.append(weighted_avg)
 
-        # Weighted average by chunk length
-        chunk_lengths = [len(chunk.split()) for chunk in chunks]
-        total_length = sum(chunk_lengths)
-        weighted_avg = sum(score * length for score, length in zip(chunk_scores, chunk_lengths)) / total_length
-
-        all_scores.append(weighted_avg)
+        except Exception as e:
+            # Print the caption that caused the error
+            print(f"\n❌ Failed on caption:\n{caption}\nError: {e}")
+            # Append a placeholder score
+            all_scores.append(0.0)
 
     return pd.Series(all_scores)
-
-# ------------------ Usage Example ------------------
-if __name__ == "__main__":
-    df = pd.DataFrame({
-        "caption": [
-            "This product is amazing! " * 100,  # very long caption
-            "I'm not sure how I feel about this.",
-            "Worst experience ever."
-        ]
-    }) 
-
-    results = classify_mind_miner(df["caption"])
-    print(results)
-
