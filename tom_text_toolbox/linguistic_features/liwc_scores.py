@@ -127,7 +127,7 @@ def classify_liwc(file: str, column: str, dependent: bool = False, merge_back: b
         liwc_df_default = pd.read_csv(output_path_default)
         if concise:
             columns_to_keep = ["achieve", "Affect", "affiliation", "Analytic",
-                               "article", "Authentic", "cogproc", "emo_anx", "emo_sad", "exclusive",
+                               "article", "Authentic", "cogproc", "differ", "emo_anx", "emo_sad", "exclusive",
                                "filler", "function", "home", "motion", "Drives",
                                'reward', 'risk', 'curiosity', "negate", "number", "Perception",
                                "we", "i", "you", "relig", "emo_pos", "emo_neg", "tone_pos",
