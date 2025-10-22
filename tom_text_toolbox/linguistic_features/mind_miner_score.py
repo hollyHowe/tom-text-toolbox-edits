@@ -1,7 +1,19 @@
+import os
+import logging
 import pandas as pd
 from transformers import pipeline, AutoTokenizer
 import torch
 from tqdm import tqdm
+
+# --- Universal Hugging Face / Xet stability setup ---
+os.environ.setdefault("HF_HUB_DISABLE_XET", "1")           # disable xet-core progress threads
+os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "0")    # avoid experimental fast-path downloader
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "0") # keep tqdm, disable xet progress
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+
+logging.getLogger("xet.progress").setLevel(logging.ERROR)
+logging.getLogger("transformers").setLevel(logging.ERROR)
+
 
 def chunk_text_with_token_lengths(text: str, tokenizer, max_tokens: int = 300):
     """
