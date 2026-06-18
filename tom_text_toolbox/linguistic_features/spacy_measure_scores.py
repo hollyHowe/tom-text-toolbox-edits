@@ -33,17 +33,8 @@ class SpacyAnalyzer:
             content_count = doc.count_by(spacy.attrs.POS)
             content_tokens = content_count.get(NOUN, 0) + content_count.get(VERB, 0) + \
                              content_count.get(ADJ, 0) + content_count.get(ADV, 0)
-            informativeness.append(round(content_tokens / n_tokens, 3) if n_tokens else 0.0)
-
-            # ---- Narrativity ----
-            verbs = [t.lemma_ for t in alpha_tokens if t.pos_ == "VERB"]
-            n_verbs = len(verbs)
-            if n_verbs:
-                state_count = sum(1 for v in verbs if v in state_verbs)
-                event_count = sum(1 for v in verbs if v in event_verbs)
-                narrativity.append(round((state_count + event_count) / n_verbs, 3))
-            else:
-                narrativity.append(0.0)
+            n_words = sum(1 for token in doc if token.is_alpha)
+            informativeness.append(round(content_tokens / n_words, 3) if n_words else 0.0)
 
             # ---- Syntax complexity ----
             dep_counts = doc.count_by(spacy.attrs.DEP)
@@ -77,7 +68,7 @@ class SpacyAnalyzer:
         # Build final DataFrame
         df = pd.DataFrame({
             "informativeness": informativeness,
-            "narrativity": narrativity,
+            "boastful_language": boastful,
             "syntax_complexity": syntax_complexity,
             "cb_ratio": [
                 float('inf') if b == 0 and c > 0 else 0.0 if b == 0 else c / b
