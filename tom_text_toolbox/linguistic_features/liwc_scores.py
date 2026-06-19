@@ -131,7 +131,7 @@ def classify_liwc(file: str, column: str, dependent: bool = False, merge_back: b
                                "filler", "function", "home", "motion", "Drives",
                                'reward', 'risk', 'curiosity', "negate", "number", "Perception",
                                "we", "i", "you", "relig", "emo_pos", "emo_neg", "tone_pos",
-                               "tone_neg", "Social", "space", "swear", "time", "work"]
+                               "tone_neg", "Social", "space", "swear", "time", "work", "Conversation"]
             liwc_df_default = liwc_df_default[[col for col in columns_to_keep if col in liwc_df_default.columns]]
 
     except subprocess.CalledProcessError as e:
