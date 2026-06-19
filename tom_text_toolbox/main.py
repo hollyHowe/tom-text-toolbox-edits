@@ -8,6 +8,7 @@ from .linguistic_features.mind_miner_score import classify_mind_miner  # Mind Mi
 from .linguistic_features.mistakes_score import count_spelling_mistakes  # Spelling Mistake Count
 from .linguistic_features.passive_voice_score import count_passive  # Passive Voice Count
 from .linguistic_features.levdist_scores import classify_levdist
+from .linguistic_features.emosent import classify_emosent 
 
 ### Multiple Score Features (returns a DataFrame)
 from .linguistic_features.dictionary_scores import TermCounter  # All custom dictionary scores (including Harvard, excluding nrc)
@@ -71,12 +72,9 @@ def analyse_features(file: str, column: str = "caption", method: str = "complete
         nrc_scores_df = classify_nrc_dict(df["caption"])
         df = pd.concat([df, nrc_scores_df], axis=1)
 
-        # print("🪶 Classifying Figurative Language...")
-        # figurative_scores_df = classify_figures_of_speech(df["caption"])
-        # df = pd.concat([df, figurative_scores_df], axis=1)
-
-        # print("🕰 Counting passives... this might take a while...")
-        # df["passive_count"] = count_passive(df)
+        print("😀 Running EmoSent emoji sentiment scoring...")
+        emosent_scores_df = classify_emosent(df, column=column)
+        df = pd.concat([df, emosent_scores_df], axis=1)
 
         print("📗 Scoring Abstract vs Concrete...")
         df["abstract_concrete_score"] = classify_abstract_concrete(df["token_captions"])
