@@ -591,8 +591,14 @@
 "lonely", "loss", "love", "meet", "memory", "miss", "mother", "movie", "music", "nostalgic", "old", "parent", "past", "peaceful", "people", "personal", "pet", "photo", "place", "play", "pleasant", "positive", "relationship", "relaxed", "relive", "remember",
 "reminder", "reminisce", "reminiscence", "rose-tinted", "sad", "sadness", "school", "security", "sentimental", "sister", "sit",
 "smile", "summer", "think", "time", "toy", "vacation", "value", "visit", "walk", "wish", "wishful", "yearn", "young", "youth"
-]
+],
 
+"reg_promoton":["accomplish", "achieve", "advancement", "aspiration", "aspire", "attain", "desire", "earn","expand", "gain", "grow", "hope", "ideal", "improve", "increase",
+    "momentum", "obtain", "optimistic", "progress", "promote", "promotion", "speed",  "swift",  "toward", "velocity", "wish"
+],
+"reg_prevention": ["accuracy", "afraid", "careful", "anxious", "avoid", "conservative","defend", "duty", "escape", "evade",  "fail", "fear", "loss", "obligation", "ought",
+    "pain", "prevent", "protect", "responsible", "risk", "safety", "security", "threat", "vigilance"
+]
 }
 
 
