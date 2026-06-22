@@ -9,6 +9,7 @@ from .linguistic_features.mistakes_score import count_spelling_mistakes  # Spell
 from .linguistic_features.passive_voice_score import count_passive  # Passive Voice Count
 from .linguistic_features.levdist_scores import classify_levdist
 from .linguistic_features.emosent import classify_emosent 
+from .linguistic_features.readability_score import readability_scores
 
 ### Multiple Score Features (returns a DataFrame)
 from .linguistic_features.dictionary_scores import TermCounter  # All custom dictionary scores (including Harvard, excluding nrc)
@@ -60,16 +61,20 @@ def analyse_features(file: str, column: str = "caption", method: str = "complete
 
         print("📘 Running TermCounter...")
         tc = TermCounter.from_json()
-        term_counts_df = tc.count_all(df["caption"])
+        term_counts_df = tc.count_all(df[column])
         df = pd.concat([df, term_counts_df], axis=1)
 
         print("🧠 Running SpacyScores...")
         sc = SpacyAnalyzer()
-        sc_df = sc.score_spacy_measures(df["caption"])
+        sc_df = sc.score_spacy_measures(df[column])
         df = pd.concat([df, sc_df], axis=1)
 
+        print(" Scoring Readability...")
+        readability_scores_df = readability_scores(df[column])
+        df = pd.concat([df, readability_scores_df], axis=1)
+
         print("🎭 Running NRC Dictionary Scoring...")
-        nrc_scores_df = classify_nrc_dict(df["caption"])
+        nrc_scores_df = classify_nrc_dict(df[column])
         df = pd.concat([df, nrc_scores_df], axis=1)
 
         print("😀 Running EmoSent emoji sentiment scoring...")
@@ -83,13 +88,13 @@ def analyse_features(file: str, column: str = "caption", method: str = "complete
         df["familiarity_score"] = classify_familiarity(df["token_captions"])
 
         print("🩸 Counting Spelling Mistakes...")
-        df["mistakes_count"] = count_spelling_mistakes(df["caption"])
+        df["mistakes_count"] = count_spelling_mistakes(df[column])
 
         print("💭 Scoring Mind Miner...")
-        df["mind_miner_score"] = classify_mind_miner(df["caption"])
+        df["mind_miner_score"] = classify_mind_miner(df[column])
 
         print("📏 Scoring Perceptual Distance...")
-        df["percept_dist"] = classify_levdist(df["caption"])
+        df["percept_dist"] = classify_levdist(df[column])
 
         print("🎨 Scoring Whissell Dimensions...")
         df[["whissell_pleasant", "whissell_active", "whissell_image"]] = classify_whissell_scores(df["token_captions"])
@@ -103,7 +108,7 @@ def analyse_features(file: str, column: str = "caption", method: str = "complete
             print("🧩 Running LIWC analysis...")
             classify_liwc(
                 file="processed_captions.csv",
-                column="caption",
+                column=column,
                 dependent=True,
                 merge_back=True,
                 concise=True,
