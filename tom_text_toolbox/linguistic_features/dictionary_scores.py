@@ -9,13 +9,19 @@ from collections import Counter
 from typing import List, Dict, Optional
 
 # Download resources for tokenization / lemmatization
-nltk.download("punkt", quiet=True)
-nltk.download("punkt_tab", quiet=True)
-nltk.download("stopwords", quiet=True)
-nltk.download("averaged_perceptron_tagger", quiet=True)
-nltk.download("averaged_perceptron_tagger_eng", quiet=True)
-nltk.download("wordnet", quiet=True)
-nltk.download("omw-1.4", quiet=True)
+for package in [
+    "punkt",
+    "punkt_tab",
+    "stopwords",
+    "averaged_perceptron_tagger",
+    "averaged_perceptron_tagger_eng",
+    "wordnet",
+    "omw-1.4"
+]:
+    try:
+        nltk.download(package, quiet=True)
+    except Exception:
+        pass
 
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords, wordnet
@@ -23,21 +29,75 @@ from nltk import pos_tag
 from nltk.stem import WordNetLemmatizer
 
 class TermCounter:
-    def __init__(self, term_dict: Dict[str, List[str]]):
-        """Initialize TermCounter with a dictionary of term categories."""
+    def __init__(
+        self,
+        term_dict: Dict[str, List[str]],
+        nostalgia_categories: Optional[List[str]] = None,
+        change_dict: Optional[Dict[str, str]] = None
+    ):
+        """
+        Initialize TermCounter with a dictionary of term categories.
+
+        By default, only the category called "nostalgia_terms" is preprocessed
+        before counting.
+        """
+
         if not isinstance(term_dict, dict):
             raise ValueError("term_dict must be a dictionary.")
+
         if not all(isinstance(v, list) for v in term_dict.values()):
             raise ValueError("Each value in term_dict must be a list of terms.")
+
         self.term_dict = term_dict
-        self.patterns = {name: self.build_pattern(terms) for name, terms in term_dict.items()}
+
+        self.patterns = {
+            name: self.build_pattern(terms)
+            for name, terms in term_dict.items()
+        }
+
+        # This should match the key in term_dict:
+        # "nostalgia_terms": [...]
+        self.nostalgia_categories = set(
+            cat.lower() for cat in (nostalgia_categories or ["nostalgia_terms"])
+        )
+
+        # Optional spelling fixes.
+        # Add more entries here if needed.
+        default_change_dict = {
+            "freind": "friend",
+            "freinds": "friend"
+        }
+
+        if change_dict:
+            default_change_dict.update(change_dict)
+
+        self.change_dict = {
+            str(k).lower(): str(v).lower()
+            for k, v in default_change_dict.items()
+        }
+
+        self.wnl = WordNetLemmatizer()
+
 
     @classmethod
-    def from_json(cls, json_path: str = "linguistic_dictionaries/term_dict.json"):
-        """Load TermCounter from a JSON file."""
+    def from_json(
+        cls,
+        json_path: str = "linguistic_dictionaries/term_dict.json",
+        nostalgia_categories: Optional[List[str]] = None,
+        change_dict: Optional[Dict[str, str]] = None
+    ):
+        """
+        Load TermCounter from a JSON file.
+        """
+
         if not os.path.isabs(json_path):
-            base_dir = os.path.join(os.path.dirname(__file__), "..")
+            try:
+                base_dir = os.path.join(os.path.dirname(__file__), "..")
+            except NameError:
+                base_dir = os.getcwd()
+
             json_path = os.path.abspath(os.path.join(base_dir, json_path))
+
         if not os.path.exists(json_path):
             raise FileNotFoundError(f"Cannot find term dictionary file at: {json_path}")
 
@@ -46,70 +106,201 @@ class TermCounter:
 
         if not isinstance(term_dict, dict):
             raise ValueError("JSON must contain a dictionary at the top level.")
+
         if not all(isinstance(v, list) for v in term_dict.values()):
             raise ValueError("Each value in the JSON must be a list of terms.")
 
-        return cls(term_dict)
+        return cls(
+            term_dict=term_dict,
+            nostalgia_categories=nostalgia_categories,
+            change_dict=change_dict
+        )
+
 
     def build_pattern(self, terms: List[str]) -> re.Pattern:
-        """Compile a regex pattern for a list of terms (supports '*' wildcard)."""
+        """
+        Compile a regex pattern for a list of terms.
+
+        Supports '*' wildcard.
+        Example:
+            remember* matches remember, remembers, remembered, remembering
+        """
+
+        if not terms:
+            return re.compile(r"a^", re.IGNORECASE)
+
         pattern_parts = [
-            rf"\b{re.escape(term[:-1])}\w*" if term.endswith("*") else rf"\b{re.escape(term)}\b"
+            rf"\b{re.escape(term[:-1])}\w*"
+            if term.endswith("*")
+            else rf"\b{re.escape(term)}\b"
             for term in terms
         ]
-        return re.compile(rf"(?:{'|'.join(pattern_parts)})", re.IGNORECASE)
+
+        return re.compile(
+            rf"(?:{'|'.join(pattern_parts)})",
+            re.IGNORECASE
+        )
+
+
+    @staticmethod
+    def get_wordnet_pos(tag: str):
+        """
+        Convert NLTK POS tags to WordNet POS tags.
+        """
+
+        if tag.startswith("J"):
+            return wordnet.ADJ
+        elif tag.startswith("V"):
+            return wordnet.VERB
+        elif tag.startswith("N"):
+            return wordnet.NOUN
+        elif tag.startswith("R"):
+            return wordnet.ADV
+        else:
+            return None
+
+
+    def preprocess_for_nostalgia(self, captions: pd.Series) -> pd.Series:
+        """
+        Preprocess captions before applying the Nostalgia Dictionary.
+
+        Does:
+        1. Lowercase text.
+        2. Fix selected misspellings.
+        3. Lemmatize verbs to base form.
+           Example: felt -> feel
+        4. Lemmatize nouns to singular form.
+           Example: memories -> memory
+        """
+
+        captions = captions.fillna("").astype(str)
+
+        def process_one_caption(text: str) -> str:
+            tokens = word_tokenize(str(text))
+
+            tokens = [token.lower() for token in tokens]
+
+            # Fix spelling before POS tagging
+            tokens = [
+                self.change_dict.get(token, token)
+                for token in tokens
+            ]
+
+            tagged_tokens = pos_tag(tokens)
+
+            lemmas = []
+
+            for word, tag in tagged_tokens:
+                wordnet_pos = self.get_wordnet_pos(tag) or wordnet.NOUN
+                lemma = self.wnl.lemmatize(word, pos=wordnet_pos)
+
+                # Fix spelling again after lemmatizing, just in case
+                lemma = self.change_dict.get(lemma, lemma)
+
+                lemmas.append(lemma)
+
+            return " ".join(lemmas)
+
+        return captions.apply(process_one_caption)
+
 
     def count_terms(self, captions: pd.Series, category: str) -> pd.Series:
         """
-        Count term matches for a specific category.
+        Count term matches for one category.
 
-        Preserves case-insensitive matching from the compiled regex pattern.
+        If category is "nostalgia_terms", count on preprocessed text.
+        Otherwise, count on original text.
+
+        Also fixes the case-sensitivity issue.
         """
+
         if category not in self.patterns:
             raise ValueError(f"Category '{category}' not found in term_dict.")
 
         captions = captions.fillna("").astype(str)
+
+        if category.lower() in self.nostalgia_categories:
+            captions_to_count = self.preprocess_for_nostalgia(captions)
+        else:
+            captions_to_count = captions
+
         pattern = self.patterns[category]
 
-        return captions.str.count(pattern.pattern, flags=pattern.flags)
+        return captions_to_count.str.count(
+            pattern.pattern,
+            flags=pattern.flags
+        )
+
 
     @staticmethod
     def exclamation_count(captions: pd.Series) -> pd.Series:
-        return captions.str.count(r'!')
+        captions = captions.fillna("").astype(str)
+        return captions.str.count(r"!")
+
 
     @staticmethod
     def question_count(captions: pd.Series) -> pd.Series:
-        return captions.str.count(r'\?')
+        captions = captions.fillna("").astype(str)
+        return captions.str.count(r"\?")
+
 
     @staticmethod
     def hashtag_count(captions: pd.Series) -> pd.Series:
-        return captions.str.count(r'#\S+')
+        captions = captions.fillna("").astype(str)
+        return captions.str.count(r"#\S+")
+
 
     @staticmethod
     def mention_count(captions: pd.Series) -> pd.Series:
-        return captions.str.count(r'@\w+')
+        captions = captions.fillna("").astype(str)
+        return captions.str.count(r"@\w+")
+
 
     @staticmethod
     def caption_length(captions: pd.Series) -> pd.Series:
+        captions = captions.fillna("").astype(str)
         return captions.str.len()
 
+
     def type_token_ratio(self, captions: pd.Series, segment_size: int = 5) -> pd.Series:
-        """Calculate segmental type-token ratio (TTR) for each caption."""
+        """
+        Calculate segmental type-token ratio for each caption.
+        """
+
+        captions = captions.fillna("").astype(str)
+
         def calculate_segmental_ttr(text: str) -> Optional[float]:
             words = str(text).lower().split()
+
             if not words:
                 return None
-            segments = [words[i:i + segment_size] for i in range(0, len(words), segment_size)]
-            ttrs = [len(set(seg)) / len(seg) for seg in segments]
+
+            segments = [
+                words[i:i + segment_size]
+                for i in range(0, len(words), segment_size)
+            ]
+
+            ttrs = [
+                len(set(segment)) / len(segment)
+                for segment in segments
+                if len(segment) > 0
+            ]
+
+            if not ttrs:
+                return None
+
             return round(float(np.mean(ttrs)), 3)
+
         return captions.apply(calculate_segmental_ttr)
 
-    # -------------------------------------------------------
-    # New Features: Alliteration & Repetition
-    # -------------------------------------------------------
+
     @staticmethod
     def alliteration_count(captions: pd.Series) -> pd.Series:
-        """Count occurrences of alliteration per caption."""
+        """
+        Count adjacent alliterative content words per caption.
+        """
+
+        captions = captions.fillna("").astype(str)
         stop_words = set(stopwords.words("english"))
 
         def count_alliteration(text):
@@ -118,48 +309,82 @@ class TermCounter:
                 for w in word_tokenize(str(text))
                 if w.isalpha()
             ]
-            content_words = [w for w in tokens if w not in stop_words]
+
+            content_words = [
+                w for w in tokens
+                if w and w not in stop_words
+            ]
+
             count = 0
+
             for i in range(len(content_words) - 1):
                 if content_words[i][0] == content_words[i + 1][0]:
                     count += 1
+
             return count
 
         return captions.apply(count_alliteration)
 
+
     @staticmethod
     def repetition_count(captions: pd.Series) -> pd.Series:
-        """Count repeated words per caption."""
+        """
+        Count repeated words per caption.
+
+        This counts repeat uses beyond the first use.
+        Example:
+            "love love music music music" = 3 repeats
+        """
+
+        captions = captions.fillna("").astype(str)
+
         def count_repetition(text):
             tokens = [
                 w.lower().strip(string.punctuation)
                 for w in word_tokenize(str(text))
                 if w.isalpha()
             ]
+
             counts = Counter(tokens)
+
             return sum(v - 1 for v in counts.values() if v > 1)
 
         return captions.apply(count_repetition)
 
-    # -------------------------------------------------------
-    # Main Counting Function (Extended)
-    # -------------------------------------------------------
+
     def count_all(self, captions: pd.Series) -> pd.DataFrame:
         """
-        Count matches for all dictionary categories and include additional text features.
+        Count all dictionary categories and additional text features.
 
-        This version preserves case-insensitive matching.
+        Important:
+        - "nostalgia_terms" is counted on lemmatized/preprocessed captions.
+        - All other dictionary categories are counted on original captions.
+        - Regex matching is case-insensitive.
         """
 
         captions = captions.fillna("").astype(str)
 
-        df_counts = pd.DataFrame(
-            {
-                cat: captions.str.count(pat.pattern, flags=pat.flags)
-                for cat, pat in self.patterns.items()
-            },
-            index=captions.index
-        )
+        df_counts = pd.DataFrame(index=captions.index)
+
+        nostalgia_captions = None
+
+        for category, pattern in self.patterns.items():
+
+            if category.lower() in self.nostalgia_categories:
+
+                # Only preprocess once, even if there are multiple nostalgia categories.
+                if nostalgia_captions is None:
+                    nostalgia_captions = self.preprocess_for_nostalgia(captions)
+
+                captions_to_count = nostalgia_captions
+
+            else:
+                captions_to_count = captions
+
+            df_counts[category] = captions_to_count.str.count(
+                pattern.pattern,
+                flags=pattern.flags
+            )
 
         df_counts["exclamation_count"] = self.exclamation_count(captions)
         df_counts["question_count"] = self.question_count(captions)
@@ -172,15 +397,12 @@ class TermCounter:
 
         return df_counts
 
-
 if __name__ == "__main__":
     tc = TermCounter.from_json("tom_text_toolbox/dictionaries/term_dict.json")
     df = pd.read_csv("tom_text_toolbox/text_data_TEST.csv")
 
-    # Count all term categories and linguistic features
     term_counts_df = tc.count_all(df["caption"])
 
-    # Merge results with the original data
     df = pd.concat([df, term_counts_df], axis=1)
 
-    print(df[["caption", "alliteration_count", "repetition_count"]].head())
+    print(df[["caption", "nostalgia_terms", "alliteration_count", "repetition_count"]].head())
