@@ -7,15 +7,20 @@ import string
 import nltk
 from collections import Counter
 from typing import List, Dict, Optional
-from concurrent.futures import ThreadPoolExecutor
-from emosent import get_emoji_sentiment_rank_multiple
 
-# Download resources for tokenization
+# Download resources for tokenization / lemmatization
 nltk.download("punkt", quiet=True)
+nltk.download("punkt_tab", quiet=True)
 nltk.download("stopwords", quiet=True)
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
+nltk.download("averaged_perceptron_tagger", quiet=True)
+nltk.download("averaged_perceptron_tagger_eng", quiet=True)
+nltk.download("wordnet", quiet=True)
+nltk.download("omw-1.4", quiet=True)
 
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords, wordnet
+from nltk import pos_tag
+from nltk.stem import WordNetLemmatizer
 
 class TermCounter:
     def __init__(self, term_dict: Dict[str, List[str]]):
@@ -55,35 +60,18 @@ class TermCounter:
         return re.compile(rf"(?:{'|'.join(pattern_parts)})", re.IGNORECASE)
 
     def count_terms(self, captions: pd.Series, category: str) -> pd.Series:
-        """Count term matches for a specific category."""
+        """
+        Count term matches for a specific category.
+
+        Preserves case-insensitive matching from the compiled regex pattern.
+        """
         if category not in self.patterns:
             raise ValueError(f"Category '{category}' not found in term_dict.")
-        return captions.str.count(self.patterns[category].pattern)
 
-    def extract_emoji_dict(self, captions: pd.Series, parallel: bool = True, verbose: bool = False) -> Counter:
-        """Extract emoji sentiment counts from text."""
-        emoji_counter = Counter()
-        captions = captions.astype(str)
+        captions = captions.fillna("").astype(str)
+        pattern = self.patterns[category]
 
-        def process_caption(caption: str) -> List[str]:
-            try:
-                results = get_emoji_sentiment_rank_multiple(caption)
-                return [item.get('emoji_sentiment_rank', {}).get('unicode_name', 'unknown') for item in results]
-            except Exception as e:
-                if verbose:
-                    print(f"Error processing text: {e}")
-                return []
-
-        if parallel:
-            with ThreadPoolExecutor() as executor:
-                all_results = list(executor.map(process_caption, captions))
-            for result in all_results:
-                emoji_counter.update(result)
-        else:
-            for caption in captions:
-                emoji_counter.update(process_caption(caption))
-
-        return emoji_counter
+        return captions.str.count(pattern.pattern, flags=pattern.flags)
 
     @staticmethod
     def exclamation_count(captions: pd.Series) -> pd.Series:
@@ -157,17 +145,30 @@ class TermCounter:
     # Main Counting Function (Extended)
     # -------------------------------------------------------
     def count_all(self, captions: pd.Series) -> pd.DataFrame:
-        """Count matches for all categories AND include additional text features."""
-        df_counts = pd.DataFrame({cat: captions.str.count(pat.pattern) for cat, pat in self.patterns.items()})
+        """
+        Count matches for all dictionary categories and include additional text features.
 
-        df_counts['exclamation_count'] = self.exclamation_count(captions)
-        df_counts['question_count'] = self.question_count(captions)
-        df_counts['hashtag_count'] = self.hashtag_count(captions)
-        df_counts['mention_count'] = self.mention_count(captions)
-        df_counts['caption_length'] = self.caption_length(captions)
-        df_counts['type_token_ratio'] = self.type_token_ratio(captions)
-        df_counts['alliteration_count'] = self.alliteration_count(captions)
-        df_counts['repetition_count'] = self.repetition_count(captions)
+        This version preserves case-insensitive matching.
+        """
+
+        captions = captions.fillna("").astype(str)
+
+        df_counts = pd.DataFrame(
+            {
+                cat: captions.str.count(pat.pattern, flags=pat.flags)
+                for cat, pat in self.patterns.items()
+            },
+            index=captions.index
+        )
+
+        df_counts["exclamation_count"] = self.exclamation_count(captions)
+        df_counts["question_count"] = self.question_count(captions)
+        df_counts["hashtag_count"] = self.hashtag_count(captions)
+        df_counts["mention_count"] = self.mention_count(captions)
+        df_counts["caption_length"] = self.caption_length(captions)
+        df_counts["type_token_ratio"] = self.type_token_ratio(captions)
+        df_counts["alliteration_count"] = self.alliteration_count(captions)
+        df_counts["repetition_count"] = self.repetition_count(captions)
 
         return df_counts
 
