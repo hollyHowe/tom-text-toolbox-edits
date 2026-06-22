@@ -28,18 +28,21 @@ from nltk.corpus import stopwords, wordnet
 from nltk import pos_tag
 from nltk.stem import WordNetLemmatizer
 
+
 class TermCounter:
     def __init__(
         self,
         term_dict: Dict[str, List[str]],
-        nostalgia_categories: Optional[List[str]] = None,
+        preprocessed_categories: Optional[List[str]] = None,
         change_dict: Optional[Dict[str, str]] = None
     ):
         """
         Initialize TermCounter with a dictionary of term categories.
 
-        By default, only the category called "nostalgia_terms" is preprocessed
-        before counting.
+        By default, these categories are preprocessed before counting:
+        - nostalgia_terms
+        - reg_promotion
+        - reg_prevention
         """
 
         if not isinstance(term_dict, dict):
@@ -55,10 +58,12 @@ class TermCounter:
             for name, terms in term_dict.items()
         }
 
-        # This should match the key in term_dict:
-        # "nostalgia_terms": [...]
-        self.nostalgia_categories = set(
-            cat.lower() for cat in (nostalgia_categories or ["nostalgia_terms"])
+        self.preprocessed_categories = set(
+            cat.lower()
+            for cat in (
+                preprocessed_categories
+                or ["nostalgia_terms", "reg_promotion", "reg_prevention"]
+            )
         )
 
         # Optional spelling fixes.
@@ -83,7 +88,7 @@ class TermCounter:
     def from_json(
         cls,
         json_path: str = "linguistic_dictionaries/term_dict.json",
-        nostalgia_categories: Optional[List[str]] = None,
+        preprocessed_categories: Optional[List[str]] = None,
         change_dict: Optional[Dict[str, str]] = None
     ):
         """
@@ -112,7 +117,7 @@ class TermCounter:
 
         return cls(
             term_dict=term_dict,
-            nostalgia_categories=nostalgia_categories,
+            preprocessed_categories=preprocessed_categories,
             change_dict=change_dict
         )
 
@@ -160,15 +165,15 @@ class TermCounter:
             return None
 
 
-    def preprocess_for_nostalgia(self, captions: pd.Series) -> pd.Series:
+    def preprocess_for_dictionary(self, captions: pd.Series) -> pd.Series:
         """
-        Preprocess captions before applying the Nostalgia Dictionary.
+        Preprocess captions before applying selected dictionaries.
 
         Does:
         1. Lowercase text.
         2. Fix selected misspellings.
         3. Lemmatize verbs to base form.
-           Example: felt -> feel
+           Example: felt -> feel, achieved -> achieve, escaping -> escape
         4. Lemmatize nouns to singular form.
            Example: memories -> memory
         """
@@ -208,7 +213,7 @@ class TermCounter:
         """
         Count term matches for one category.
 
-        If category is "nostalgia_terms", count on preprocessed text.
+        If category is in self.preprocessed_categories, count on preprocessed text.
         Otherwise, count on original text.
 
         Also fixes the case-sensitivity issue.
@@ -219,8 +224,8 @@ class TermCounter:
 
         captions = captions.fillna("").astype(str)
 
-        if category.lower() in self.nostalgia_categories:
-            captions_to_count = self.preprocess_for_nostalgia(captions)
+        if category.lower() in self.preprocessed_categories:
+            captions_to_count = self.preprocess_for_dictionary(captions)
         else:
             captions_to_count = captions
 
@@ -357,7 +362,8 @@ class TermCounter:
         Count all dictionary categories and additional text features.
 
         Important:
-        - "nostalgia_terms" is counted on lemmatized/preprocessed captions.
+        - Categories in self.preprocessed_categories are counted on
+          lemmatized/preprocessed captions.
         - All other dictionary categories are counted on original captions.
         - Regex matching is case-insensitive.
         """
@@ -366,17 +372,17 @@ class TermCounter:
 
         df_counts = pd.DataFrame(index=captions.index)
 
-        nostalgia_captions = None
+        preprocessed_captions = None
 
         for category, pattern in self.patterns.items():
 
-            if category.lower() in self.nostalgia_categories:
+            if category.lower() in self.preprocessed_categories:
 
-                # Only preprocess once, even if there are multiple nostalgia categories.
-                if nostalgia_captions is None:
-                    nostalgia_captions = self.preprocess_for_nostalgia(captions)
+                # Only preprocess once, even if there are multiple preprocessed categories.
+                if preprocessed_captions is None:
+                    preprocessed_captions = self.preprocess_for_dictionary(captions)
 
-                captions_to_count = nostalgia_captions
+                captions_to_count = preprocessed_captions
 
             else:
                 captions_to_count = captions
@@ -397,6 +403,7 @@ class TermCounter:
 
         return df_counts
 
+
 if __name__ == "__main__":
     tc = TermCounter.from_json("tom_text_toolbox/dictionaries/term_dict.json")
     df = pd.read_csv("tom_text_toolbox/text_data_TEST.csv")
@@ -405,4 +412,4 @@ if __name__ == "__main__":
 
     df = pd.concat([df, term_counts_df], axis=1)
 
-    print(df[["caption", "nostalgia_terms", "alliteration_count", "repetition_count"]].head())
+    print(df[["caption", "alliteration_count", "repetition_count"]].head())
