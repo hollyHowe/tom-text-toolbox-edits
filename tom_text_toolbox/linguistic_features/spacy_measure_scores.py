@@ -19,10 +19,7 @@ class SpacyAnalyzer:
     def score_spacy_measures(self, captions: pd.Series) -> pd.DataFrame:
         docs = list(self.nlp.pipe(captions.astype(str), batch_size=2000, n_process=4))
 
-        state_verbs = {"feel", "become", "change", "transform", "realize", "understand", "decide"}
-        event_verbs = {"happen", "occur", "cause", "trigger", "lead", "result", "start", "end"}
-
-        informativeness, narrativity, boastful, syntax_complexity, tense_data = [], [], [], [], []
+        informativeness, boastful, syntax_complexity, tense_data = [], [], [], []
         consumer_counts, brand_counts = [], []
 
         for doc in docs:
