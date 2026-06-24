@@ -8,20 +8,11 @@ class SpacyAnalyzer:
     def __init__(self):
         self.nlp = spacy.load("en_core_web_lg")
 
-        # Load cb_ratio.json from dictionaries folder
-        base_dir = os.path.dirname(__file__)  # directory of spacy_measure_scores.py
-        cb_path = os.path.join(base_dir, "..", "linguistic_dictionaries", "cb_ratio.json")
-        cb_path = os.path.abspath(cb_path)
-        with open(cb_path, "r", encoding="utf-8") as f:
-            self.term_dict = json.load(f)
-        self.term_dict = {k: set(v) for k, v in self.term_dict.items()}
-
     def score_spacy_measures(self, captions: pd.Series) -> pd.DataFrame:
         docs = list(self.nlp.pipe(captions.astype(str), batch_size=2000, n_process=4))
 
         informativeness, boastful, syntax_complexity, tense_data = [], [], [], []
-        consumer_counts, brand_counts = [], []
-
+        
         for doc in docs:
             alpha_tokens = [t for t in doc if t.is_alpha]
             n_tokens = len(alpha_tokens)
@@ -50,14 +41,6 @@ class SpacyAnalyzer:
                         counts["Present"] += 1
             tense_data.append(counts)
 
-            # ---- Consumer/Brand ratio ----
-            subjects = [t for t in doc if t.dep_ in ("nsubj", "nsubjpass")]
-            c_count = sum(1 for tok in subjects if tok.lemma_.lower() in self.term_dict["user"] or tok.text.lower() in self.term_dict["user"])
-            b_count = sum(1 for tok in subjects if tok.lemma_.lower() in self.term_dict["brand"] or tok.text.lower() in self.term_dict["brand"] 
-                          or tok.lemma_.lower() in self.term_dict["product"] or tok.text.lower() in self.term_dict["product"])
-            consumer_counts.append(c_count)
-            brand_counts.append(b_count)
-
             # ---- Boastful Language ----
             boast_count = sum(1 for token in doc if token.tag_ in ["JJS", "RBS"])
             boastful.append(boast_count)
@@ -67,10 +50,6 @@ class SpacyAnalyzer:
             "informativeness": informativeness,
             "boastful_language": boastful,
             "syntax_complexity": syntax_complexity,
-            "cb_ratio": [
-                float('inf') if b == 0 and c > 0 else 0.0 if b == 0 else c / b
-                for c, b in zip(consumer_counts, brand_counts)
-            ],
             "tense_past": [t["Past"] for t in tense_data],
             "tense_present": [t["Present"] for t in tense_data]
         }, index=captions.index)
