@@ -2,56 +2,81 @@ import pandas as pd
 import readability
 from tqdm import tqdm
 
-# Constants for readability method and subkey
-READABILITY_METHOD = "Flesch-Kincaid"
+
+READABILITY_METHOD = "Kincaid"
 KINCAID_KEY = "Kincaid"
+
+
+def _check_readability_package():
+    """
+    Make sure we imported the correct `readability` package.
+
+    This code needs the package named `readability`, not `readability-lxml`.
+    """
+    if not hasattr(readability, "getmeasures"):
+        raise ImportError(
+            "Wrong readability package is installed. "
+            "This code needs the PyPI package named `readability`, not `readability-lxml`.\n\n"
+            "Run this inside your conda environment:\n"
+            "python -m pip uninstall -y readability-lxml readability\n"
+            "python -m pip install readability"
+        )
+
 
 def parse_readability_measures(measures: dict, method: str = READABILITY_METHOD) -> dict:
     """
     Extracts the specified readability score from the 'readability grades' section.
     """
     grades = measures.get("readability grades", {})
+
     if method == READABILITY_METHOD and KINCAID_KEY in grades:
         return {f"readability_{KINCAID_KEY.lower()}": grades[KINCAID_KEY]}
-    return {}
 
-def get_readability_safe(text: str) -> dict | None:
+    return {f"readability_{KINCAID_KEY.lower()}": pd.NA}
+
+
+def get_readability_safe(text):
     """
     Safely computes readability measures for a single text.
-    Returns None if computation fails.
+    Returns NA if computation fails.
     """
+    empty_result = {f"readability_{KINCAID_KEY.lower()}": pd.NA}
+
+    if pd.isna(text):
+        return empty_result
+
+    text = str(text).strip()
+
+    if text == "":
+        return empty_result
+
     try:
         measures = readability.getmeasures(text)
         return parse_readability_measures(measures)
-    except ValueError:
-        return None
 
-def readability_scores(captions: pd.Series) -> pd.DataFrame:
+    except ValueError:
+        return empty_result
+
+
+def readability_scores(captions):
     """
-    Computes readability scores for a pandas Series of captions.
+    Computes readability scores for a pandas Series of captions/text.
     Returns a DataFrame aligned with the original Series index.
     """
+    _check_readability_package()
+
     tqdm.pandas(desc="Computing readability")
+
     results = captions.progress_apply(get_readability_safe)
 
-    # Keep only successful results
-    valid_results = results[results.notnull()]
+    readability_scores_df = pd.DataFrame(
+        results.tolist(),
+        index=captions.index
+    )
 
-    # Convert to DataFrame and align with original index
-    df = pd.DataFrame.from_records(valid_results)
-    df = df.reindex(captions.index)
+    skipped = readability_scores_df[f"readability_{KINCAID_KEY.lower()}"].isna().sum()
+    success_rate = ((len(readability_scores_df) - skipped) / len(readability_scores_df)) * 100 if len(readability_scores_df) else 0
 
-    skipped = len(captions) - len(valid_results)
-    success_rate = (len(valid_results) / len(captions)) * 100
     print(f"Skipped {skipped} rows, success rate: {success_rate:.2f}%")
 
-    return df
-
-if __name__ == "__main__":
-    captions = pd.Series([
-        "This is a test.",
-        "Another sentence!",
-        "Third one."
-    ])
-    df = readability_scores(captions)
-    print(df)
+    return readability_scores_df
