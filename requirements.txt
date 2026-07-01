@@ -1,6 +1,6 @@
 numpy<2
 pandas
-readability-lxml
+readability
 nltk
 tqdm
 python-Levenshtein
